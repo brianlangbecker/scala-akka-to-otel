@@ -7,7 +7,6 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.util.Timeout
 import kamon.Kamon
-import kamon.context.Context
 import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol._
 import spray.json._
@@ -20,12 +19,10 @@ import scala.util.{Failure, Success}
 case class NotificationRequest(userId: String, message: String, channel: String)
 case class NotificationResponse(id: String, status: String, timestamp: Long)
 
-object NotificationRequest {
-  implicit val format: RootJsonFormat[NotificationRequest] = jsonFormat3(NotificationRequest.apply)
-}
-
-object NotificationResponse {
-  implicit val format: RootJsonFormat[NotificationResponse] = jsonFormat3(NotificationResponse.apply)
+object JsonFormats {
+  import spray.json.DefaultJsonProtocol._
+  implicit val notificationRequestFormat: RootJsonFormat[NotificationRequest] = jsonFormat3(NotificationRequest)
+  implicit val notificationResponseFormat: RootJsonFormat[NotificationResponse] = jsonFormat3(NotificationResponse)
 }
 
 object NotificationActor {
@@ -36,14 +33,9 @@ object NotificationActor {
     Behaviors.receive { (context, message) =>
       message match {
         case SendNotification(request, replyTo) =>
-          val span = Kamon.spanBuilder("send-notification")
-            .tag("user.id", request.userId)
-            .tag("notification.channel", request.channel)
-            .start()
           
           context.log.info(s"Sending notification to user ${request.userId} via ${request.channel}: ${request.message}")
           
-          // Simulate notification processing delay
           Thread.sleep(100)
           
           val response = NotificationResponse(
@@ -53,8 +45,6 @@ object NotificationActor {
           )
           
           context.log.info(s"Notification sent with id: ${response.id}")
-          span.tag("notification.id", response.id)
-          span.finish()
           
           replyTo ! response
           Behaviors.same
@@ -64,17 +54,20 @@ object NotificationActor {
 }
 
 object NotificationApp extends App with LazyLogging {
-  
-  // Initialize Kamon
-  println("Starting notification service - about to initialize Kamon")
-  Kamon.init()
-  println("Kamon initialized successfully in notification service")
-  
-  implicit val system: ActorSystem[NotificationActor.Command] = ActorSystem(NotificationActor(), "notification-system")
-  implicit val executionContext: ExecutionContext = system.executionContext
-  implicit val timeout: Timeout = Timeout(5.seconds)
+  import JsonFormats._
 
-  val notificationActor = system
+  println("Starting notification service - about to initialize Kamon")
+  
+  Kamon.init()
+  
+  println("Kamon initialized successfully in notification service")
+
+  implicit val system: ActorSystem[NotificationActor.Command] =
+    ActorSystem(NotificationActor(), "notification-system")
+  implicit val executionContext: ExecutionContext = system.executionContext
+  implicit val timeout: Timeout = 3.seconds
+
+  val notificationActor: ActorRef[NotificationActor.Command] = system
 
   val route =
     pathPrefix("api" / "notifications") {
@@ -82,10 +75,6 @@ object NotificationApp extends App with LazyLogging {
         post {
           entity(as[NotificationRequest]) { request =>
             extractRequest { httpRequest =>
-              val span = Kamon.spanBuilder("notification-request")
-                .tag("http.method", "POST")
-                .tag("http.path", "/api/notifications")
-                .start()
               
               logger.info(s"POST request to send notification: $request")
               
@@ -93,14 +82,8 @@ object NotificationApp extends App with LazyLogging {
                 import akka.actor.typed.scaladsl.AskPattern._
                 val future: Future[NotificationResponse] = notificationActor.ask(NotificationActor.SendNotification(request, _))
                 future.map { response =>
-                  span.tag("notification.id", response.id)
-                  span.tag("notification.status", response.status)
-                  span.finish()
                   HttpResponse(StatusCodes.OK, entity = response.toJson.compactPrint)
                 }.recover { case ex =>
-                  span.tag("error", true)
-                  span.tag("error.message", ex.getMessage)
-                  span.finish()
                   HttpResponse(StatusCodes.InternalServerError)
                 }
               }
@@ -108,30 +91,19 @@ object NotificationApp extends App with LazyLogging {
           }
         }
       )
-    } ~
-    path("health") {
-      get {
-        complete(HttpResponse(StatusCodes.OK, entity = "Notification Service OK"))
-      }
     }
 
   val bindingFuture = Http().newServerAt("0.0.0.0", 8081).bind(route)
-
-  bindingFuture.onComplete {
-    case Success(binding) =>
-      val address = binding.localAddress
-      logger.info(s"Notification Service online at http://${address.getHostString}:${address.getPort}/")
-    case Failure(ex) =>
-      logger.error("Failed to bind HTTP endpoint", ex)
-      system.terminate()
-  }
-
+  
+  println(s"Notification Service online at http://localhost:8081/")
+  
   sys.addShutdownHook {
-    bindingFuture
-      .flatMap(_.unbind())
-      .onComplete(_ => {
-        Kamon.stop()
-        system.terminate()
-      })
+    println("=== Stopping Kamon in Notification Service ===")
+    Kamon.stop()
+    system.terminate()
+    println("=== Notification Service stopped ===")
   }
+  
+  // Keep the application running (block main thread)
+  scala.concurrent.Await.result(system.whenTerminated, scala.concurrent.duration.Duration.Inf)
 }

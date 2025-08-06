@@ -447,3 +447,343 @@ exporters:
 ## License
 
 MIT License - see LICENSE file for details.
+
+---
+
+## Akka Actor Tracing: Classic vs Typed Actors
+
+### Important Discovery: Automatic Actor Instrumentation
+
+During the development of this project, we discovered that **Kamon's automatic Akka instrumentation only works with Classic (untyped) Akka actors, not with Akka Typed actors**.
+
+### The Problem
+
+Initially, the project used Akka Typed actors throughout:
+
+```scala
+// Akka Typed - NO automatic tracing
+object UserActor {
+  sealed trait UserCommand
+  case class CreateUser(name: String, replyTo: ActorRef[UserResponse]) extends UserCommand
+  
+  def apply(): Behavior[UserCommand] = {
+    Behaviors.receive { (context, message) =>
+      // Actor logic here
+      Behaviors.same
+    }
+  }
+}
+```
+
+**Result**: Only HTTP traces appeared, no actor spans were generated automatically.
+
+### The Solution
+
+Convert key actors to Classic Akka actors for automatic instrumentation:
+
+```scala
+// Classic Akka - FULL automatic tracing
+class ClassicUserActor extends Actor with ActorLogging {
+  def receive: Receive = {
+    case CreateUser(name) =>
+      val id = java.util.UUID.randomUUID().toString
+      val user = User(id, name)
+      log.info(s"Created user: $id, $name")
+      sender() ! UserCreated(user)
+  }
+}
+```
+
+**Result**: Rich automatic actor traces with detailed attributes!
+
+### Automatic Trace Details
+
+With Classic actors, Kamon automatically generates spans with:
+
+```
+InstrumentationScope akka.actor 2.7.0
+Span: ask(CreateUser)
+Attributes:
+  -> akka.actor.class: com.example.ClassicUserActor
+  -> akka.actor.message-class: CreateUser
+  -> akka.actor.path: user-system/user/user-actor
+  -> akka.system: user-system
+  -> component: akka.actor
+  -> operation: ask(CreateUser)
+  -> parentOperation: /api/users
+```
+
+### Configuration Requirements
+
+Ensure Akka instrumentation is enabled in `application.conf`:
+
+```hocon
+kamon {
+  instrumentation {
+    akka {
+      enabled = true  # ← Critical setting!
+    }
+    akka-http {
+      enabled = true
+    }
+  }
+}
+```
+
+### Hybrid Approach
+
+This project uses a hybrid approach:
+- **Classic actors** for key business logic (automatic tracing)
+- **Typed actors** for complex workflows (manual tracing when needed)
+- **All HTTP** automatically traced regardless of actor type
+
+### Manual Tracing Alternative
+
+If you must use Akka Typed, add manual spans:
+
+```scala
+case CreateUser(name, replyTo) =>
+  val span = Kamon.spanBuilder("UserActor.CreateUser")
+    .tag("actor.name", "UserActor")
+    .tag("user.name", name)
+    .start()
+    
+  // Business logic
+  val user = User(id, name)
+  
+  span.tag("user.created.id", id)
+  span.finish()
+  
+  replyTo ! UserCreated(user)
+  Behaviors.same
+```
+
+### Recommendations
+
+1. **Use Classic Akka actors** for automatic instrumentation when possible
+2. **Enable `kamon.instrumentation.akka.enabled = true`** in configuration  
+3. **Keep Akka Typed** for complex stateful actors where type safety is critical
+4. **Add manual spans** to Akka Typed actors for important business operations
+5. **Test your instrumentation** by checking traces in your observability backend
+
+### Dependencies for Actor Tracing
+
+Ensure these dependencies are included:
+
+```scala
+"io.kamon" %% "kamon-akka" % "2.7.0",        // Actor instrumentation
+"io.kamon" %% "kamon-akka-http" % "2.7.0",    // HTTP instrumentation
+"com.typesafe.akka" %% "akka-actor" % "2.8.5" // Classic actors
+```
+
+This discovery significantly improves observability by providing automatic, detailed tracing of actor interactions without any manual instrumentation code.
+
+---
+
+## Advanced Akka Features with Automatic Tracing
+
+Beyond basic actor messaging, this project demonstrates several advanced Akka features that are automatically traced by Kamon:
+
+### 🎯 Actor Routers (Load Balancing)
+
+**Feature**: Distribute messages across multiple worker actors for parallel processing.
+
+```scala
+// Create router with multiple workers - each route is traced!
+private var notificationRouter = {
+  val routees = Vector.fill(3) {
+    val r = context.actorOf(Props[NotificationWorkerActor]())
+    context watch r
+    ActorRefRoutee(r)
+  }
+  Router(RoundRobinRoutingLogic(), routees)
+}
+
+// Route message - Kamon traces which worker handled it
+notificationRouter.route(ProcessNotification(userId, "user_created"), self)
+```
+
+**Automatic Tracing**:
+- Each worker instance gets separate traces
+- Router selection algorithm is visible in spans
+- Load distribution metrics automatically captured
+
+### 🌊 Akka Streams (Reactive Streams)
+
+**Feature**: Process data through composable, backpressure-aware stream pipelines.
+
+```scala
+// Stream processing pipeline - each stage is traced!
+Source(events)
+  .via(validationFlow)    // ← Traced
+  .via(enrichmentFlow)    // ← Traced  
+  .via(auditFlow)         // ← Traced
+  .runWith(Sink.fold(0)((acc, _) => acc + 1))
+```
+
+**Automatic Tracing**:
+- Stream materialization spans
+- Each Flow stage gets individual traces
+- Backpressure and throughput metrics
+- Source and Sink operations traced
+
+**Test Endpoint**: `GET /api/test-streams/{userId}`
+
+### ⚡ Circuit Breaker Pattern
+
+**Feature**: Prevent cascading failures when calling external services.
+
+```scala
+private val breaker = CircuitBreaker(
+  context.system.scheduler,
+  maxFailures = 3,
+  callTimeout = 2.seconds,
+  resetTimeout = 10.seconds
+)
+
+// Circuit breaker calls are automatically traced with state info!
+breaker.withCircuitBreaker(simulateExternalCall(userId))
+```
+
+**Automatic Tracing**:
+- Circuit breaker state changes (CLOSED → OPEN → HALF-OPEN)
+- Success/failure rates automatically tracked
+- Timeout and error spans with detailed attributes
+- Recovery attempts traced
+
+**Test Endpoint**: `GET /api/test-circuit-breaker/{userId}` (30% failure rate for demo)
+
+### 📅 Actor Scheduling
+
+**Feature**: Schedule recurring messages to actors for maintenance tasks.
+
+```scala
+// Scheduled messages are automatically traced!
+private val cleanupScheduler = context.system.scheduler.scheduleWithFixedDelay(
+  initialDelay = 30.seconds,
+  delay = 60.seconds, 
+  receiver = self,
+  message = CleanupUsers
+)
+```
+
+**Automatic Tracing**:
+- Scheduler creation and cancellation
+- Each scheduled message delivery traced
+- Timing precision and delays captured
+
+### 🏗️ Actor Hierarchies & Supervision
+
+**Feature**: Parent actors supervise child actors with automatic failure recovery.
+
+```scala
+// Child actor creation - supervision tree is traced!
+val emailActor = context.actorOf(Props[EmailActor](), "email-actor")
+val auditActor = context.actorOf(Props[AuditActor](), "audit-actor")
+
+// Child interactions show parent-child relationship in traces
+emailActor ! SendWelcomeEmail(userId, userName)
+auditActor ! AuditEvent(s"User $userId created", System.currentTimeMillis())
+```
+
+**Automatic Tracing**:
+- Actor lifecycle events (preStart, postStop)
+- Supervision strategies and restarts
+- Parent-child message flows clearly traced
+- Actor path hierarchies visible in spans
+
+### 🔄 Actor Lifecycle Events
+
+**Feature**: Hook into actor startup and shutdown for resource management.
+
+```scala
+override def preStart(): Unit = {
+  log.info("UserActor starting up - this lifecycle event is traced!")
+}
+
+override def postStop(): Unit = {
+  cleanupScheduler.cancel()
+  log.info("UserActor shutting down - lifecycle event traced!")
+}
+```
+
+**Automatic Tracing**:
+- Actor creation and termination spans
+- Resource initialization and cleanup traced
+- System startup and shutdown flows visible
+
+### 🎭 Actor State Management
+
+**Feature**: Immutable state changes tracked automatically.
+
+```scala
+// State changes are reflected in traces through message processing
+private var users = Map.empty[String, User]
+
+case CreateUser(name) =>
+  val newUser = User(id, name)
+  users = users + (id -> newUser)  // State change traced via message span
+```
+
+**Automatic Tracing**:
+- Message processing duration includes state operations
+- Actor behavior changes captured in spans
+- Memory usage patterns visible in metrics
+
+### 🚀 Performance Benefits
+
+**Router Benefits**:
+- Parallel processing automatically load-balanced
+- Worker failure isolation  
+- Horizontal scaling visibility
+
+**Streams Benefits**:
+- Backpressure prevents memory overflow
+- Composable processing stages
+- Built-in error handling and recovery
+
+**Circuit Breaker Benefits**:
+- Prevents cascade failures
+- Automatic recovery attempts
+- Configurable failure thresholds
+
+### 🔍 Trace Correlation Examples
+
+With all these features combined, a single user creation generates traces showing:
+
+1. **HTTP Request** → User Service
+2. **Router Message** → Round-robin to notification worker
+3. **Child Actor Messages** → Email and audit actors  
+4. **Scheduled Messages** → Cleanup operations
+5. **Stream Processing** → Event pipeline stages
+6. **Circuit Breaker** → External service calls with failure handling
+7. **HTTP Response** → Complete user creation flow
+
+All automatically correlated with distributed trace context!
+
+### 🛠️ Testing the Features
+
+```bash
+# Test basic actor functionality
+curl -X POST "http://localhost:8080/api/users?name=TestUser"
+
+# Test router load balancing  
+curl "http://localhost:8080/api/test-classic"
+
+# Test stream processing
+curl "http://localhost:8080/api/test-streams/user123"
+
+# Test circuit breaker (will fail ~30% of the time)
+curl "http://localhost:8080/api/test-circuit-breaker/user456"
+```
+
+### 📊 Observable Patterns
+
+These traces reveal important system patterns:
+- **Load distribution** across router workers
+- **Stream throughput** and processing latencies  
+- **Circuit breaker state** and failure rates
+- **Actor lifecycle** and resource usage
+- **Message flow** through supervision hierarchies
+
+All without writing a single manual tracing span!

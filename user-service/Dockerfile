@@ -25,4 +25,4 @@ COPY --from=builder /app/kanela-agent.jar .
 
 EXPOSE 8080
 
-CMD ["java", "-javaagent:/app/kanela-agent.jar", "-jar", "user-service.jar"]
+CMD ["java", "-javaagent:kanela-agent.jar", "-jar", "user-service.jar"]
