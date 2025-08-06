@@ -20,11 +20,9 @@ lazy val root = (project in file("."))
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
     ),
     assembly / assemblyMergeStrategy := {
-      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
       case PathList("reference.conf") => MergeStrategy.concat
-      case PathList("application.conf") => MergeStrategy.concat
-      case "logback.xml" => MergeStrategy.first
-      case _ => MergeStrategy.first
+      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+      case x => MergeStrategy.first
     },
     assembly / assemblyJarName := "notification-service.jar"
   )

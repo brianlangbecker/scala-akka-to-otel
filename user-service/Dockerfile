@@ -1,12 +1,14 @@
 # Build stage
-FROM sbtscala/scala-sbt:eclipse-temurin-jammy-17.0.5_8_1.8.2_2.13.10 AS builder
+FROM sbtscala/scala-sbt:eclipse-temurin-jammy-17.0.9_9_1.9.7_2.13.12 as builder
 
 WORKDIR /app
 
+# Copy build files
 COPY build.sbt .
 COPY project/ project/
 RUN sbt update
 
+# Copy source code
 COPY src/ src/
 RUN sbt assembly
 

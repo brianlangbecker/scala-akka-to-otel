@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # OpenTelemetry Collector
   otel-collector:
@@ -14,23 +12,13 @@ services:
     environment:
       - HONEYCOMB_API_KEY=${HONEYCOMB_API_KEY}
 
-  # User Service
-  user-service:
-    build: ./user-service
-    ports:
-      - "8080:8080"
-    depends_on:
-      - otel-collector
-      - notification-service
-
-  # Notification Service
-  notification-service:
-    build: ./notification-service
-    ports:
-      - "8081:8081"
+  # Simple Test Service
+  simple-test:
+    build: 
+      context: ./simple-test
     depends_on:
       - otel-collector
 
 networks:
   default:
-    name: scala-akka-otel
+    name: scala-akka-otel 

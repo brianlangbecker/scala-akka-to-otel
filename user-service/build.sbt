@@ -11,9 +11,6 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-http" % "10.5.3",
       "com.typesafe.akka" %% "akka-http-spray-json" % "10.5.3",
       "com.typesafe.akka" %% "akka-slf4j" % "2.8.5",
-      "com.typesafe.akka" %% "akka-persistence-typed" % "2.8.5",
-      "com.typesafe.akka" %% "akka-serialization-jackson" % "2.8.5",
-      "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8",
       "io.kamon" %% "kamon-bundle" % "2.7.0",
       "io.kamon" %% "kamon-core" % "2.7.0",
       "io.kamon" %% "kamon-opentelemetry" % "2.7.0",
@@ -23,11 +20,9 @@ lazy val root = (project in file("."))
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
     ),
     assembly / assemblyMergeStrategy := {
-      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
       case PathList("reference.conf") => MergeStrategy.concat
-      case PathList("application.conf") => MergeStrategy.concat
-      case "logback.xml" => MergeStrategy.first
-      case _ => MergeStrategy.first
+      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+      case x => MergeStrategy.first
     },
     assembly / assemblyJarName := "user-service.jar"
   ) 
