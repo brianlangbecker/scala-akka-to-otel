@@ -12,11 +12,6 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-http" % "10.5.3",
       "com.typesafe.akka" %% "akka-http-spray-json" % "10.5.3",
       "com.typesafe.akka" %% "akka-slf4j" % "2.8.5",
-      "io.kamon" %% "kamon-bundle" % "2.7.0",
-      "io.kamon" %% "kamon-core" % "2.7.0",
-      "io.kamon" %% "kamon-opentelemetry" % "2.7.0",
-      "io.kamon" %% "kamon-akka" % "2.7.0",
-      "io.kamon" %% "kamon-akka-http" % "2.7.0",
       "ch.qos.logback" % "logback-classic" % "1.4.11",
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
     ),

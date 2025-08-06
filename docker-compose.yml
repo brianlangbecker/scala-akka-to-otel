@@ -14,20 +14,37 @@ services:
     environment:
       - HONEYCOMB_API_KEY=${HONEYCOMB_API_KEY}
 
-  # User Service
-  user-service:
+  # User Service (Classic Akka Actors)
+  user-service-classic:
     build: ./user-service
     ports:
       - "8080:8080"
     depends_on:
       - otel-collector
-      - notification-service
+      - notification-service-classic
 
-  # Notification Service
-  notification-service:
+  # Notification Service (Classic Akka Actors)
+  notification-service-classic:
     build: ./notification-service
     ports:
       - "8081:8081"
+    depends_on:
+      - otel-collector
+
+  # User Service (Typed Akka Actors)
+  user-service-typed:
+    build: ./user-service-typed
+    ports:
+      - "8082:8080"
+    depends_on:
+      - otel-collector
+      - notification-service-typed
+
+  # Notification Service (Typed Akka Actors)
+  notification-service-typed:
+    build: ./notification-service-typed
+    ports:
+      - "8083:8081"
     depends_on:
       - otel-collector
 

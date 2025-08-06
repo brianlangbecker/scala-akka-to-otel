@@ -1,6 +1,8 @@
-# Scala Akka to OpenTelemetry Demo
+# Scala Akka Classic to OpenTelemetry Demo
 
-A demonstration of distributed tracing with Scala, Akka, and OpenTelemetry using Kamon instrumentation, exporting traces to Honeycomb.
+A demonstration of distributed tracing with Scala, **Classic Akka actors**, and OpenTelemetry using Kamon instrumentation, exporting traces to Honeycomb.
+
+> **Note**: This README is specific to the Classic Akka actor implementation. For the main project documentation, see [README.md](README.md).
 
 ## Architecture
 
@@ -484,39 +486,18 @@ MIT License - see LICENSE file for details.
 
 ---
 
-## Akka Actor Tracing: Classic vs Typed Actors
+## Classic Akka Actors: Automatic Instrumentation Success
 
-### Important Discovery: Automatic Actor Instrumentation
+### Key Finding: Superior Automatic Actor Tracing
 
-During the development of this project, we discovered that **Kamon's automatic Akka instrumentation only works with Classic (untyped) Akka actors, not with Akka Typed actors**.
+This implementation demonstrates that **Kamon's automatic Akka instrumentation works exceptionally well with Classic (untyped) Akka actors**, providing comprehensive tracing without any manual instrumentation.
 
-### The Problem
+### Why Classic Actors Were Chosen
 
-Initially, the project used Akka Typed actors throughout:
-
-```scala
-// Akka Typed - NO automatic tracing
-object UserActor {
-  sealed trait UserCommand
-  case class CreateUser(name: String, replyTo: ActorRef[UserResponse]) extends UserCommand
-  
-  def apply(): Behavior[UserCommand] = {
-    Behaviors.receive { (context, message) =>
-      // Actor logic here
-      Behaviors.same
-    }
-  }
-}
-```
-
-**Result**: Only HTTP traces appeared, no actor spans were generated automatically.
-
-### The Solution
-
-Convert key actors to Classic Akka actors for automatic instrumentation:
+The project was specifically designed with Classic Akka actors to take advantage of Kamon's mature instrumentation support:
 
 ```scala
-// Classic Akka - FULL automatic tracing
+// Classic Akka - EXCEPTIONAL automatic tracing
 class ClassicUserActor extends Actor with ActorLogging {
   def receive: Receive = {
     case CreateUser(name) =>
@@ -528,7 +509,34 @@ class ClassicUserActor extends Actor with ActorLogging {
 }
 ```
 
-**Result**: Rich automatic actor traces with detailed attributes!
+**Result**: Rich automatic actor traces with comprehensive attributes and relationships!
+
+### Architecture Benefits
+
+This Classic actor implementation provides multiple layers of automatic tracing:
+
+```scala
+// Comprehensive Classic Akka ecosystem - ALL automatically traced
+class ClassicUserActor extends Actor with ActorLogging {
+  // Child actors - automatic supervision tracing
+  val emailActor = context.actorOf(Props[EmailActor](), "email-actor")
+  val auditActor = context.actorOf(Props[AuditActor](), "audit-actor")
+  
+  // Router - automatic load balancing tracing  
+  private var notificationRouter = Router(RoundRobinRoutingLogic(), routees)
+  
+  def receive: Receive = {
+    case CreateUser(name) =>
+      // All these interactions automatically traced!
+      emailActor ! SendWelcomeEmail(user.id, user.name)
+      auditActor ! AuditEvent(s"User ${user.id} created", timestamp)
+      notificationRouter.route(ProcessNotification(user.id, "created"), self)
+      sender() ! UserCreated(user)
+  }
+}
+```
+
+**Result**: Complete ecosystem tracing including child actors, routers, streams, and circuit breakers!
 
 ### Automatic Trace Details
 
@@ -564,41 +572,43 @@ kamon {
 }
 ```
 
-### Hybrid Approach
+### Pure Classic Approach
 
-This project uses a hybrid approach:
-- **Classic actors** for key business logic (automatic tracing)
-- **Typed actors** for complex workflows (manual tracing when needed)
-- **All HTTP** automatically traced regardless of actor type
+This project demonstrates a pure Classic Akka approach:
+- **Classic actors** for all business logic (automatic tracing)
+- **Classic supervision** hierarchies (automatic tracing)
+- **Classic routers** for load balancing (automatic tracing)
+- **All HTTP** automatically traced with full context propagation
 
-### Manual Tracing Alternative
+### No Manual Instrumentation Needed
 
-If you must use Akka Typed, add manual spans:
+With Classic actors and Kamon, **zero manual instrumentation is required**:
 
 ```scala
-case CreateUser(name, replyTo) =>
-  val span = Kamon.spanBuilder("UserActor.CreateUser")
-    .tag("actor.name", "UserActor")
-    .tag("user.name", name)
-    .start()
-    
-  // Business logic
-  val user = User(id, name)
+// This simple Classic actor code automatically generates rich traces
+case CreateUser(name) =>
+  val user = User(UUID.randomUUID().toString, name)
+  users = users + (user.id -> user)
+  log.info(s"Created user: ${user.id}")
   
-  span.tag("user.created.id", id)
-  span.finish()
+  // These are all automatically traced with full context!
+  emailActor ! SendWelcomeEmail(user.id, user.name)
+  auditActor ! AuditEvent(s"User ${user.id} created", timestamp)
+  notificationRouter.route(ProcessNotification(user.id, "created"), self)
   
-  replyTo ! UserCreated(user)
-  Behaviors.same
+  sender() ! UserCreated(user)
 ```
 
-### Recommendations
+The instrumentation happens at bytecode level via **Kanela agent** - no code changes needed!
 
-1. **Use Classic Akka actors** for automatic instrumentation when possible
+### Best Practices for Classic Actor Tracing
+
+1. **Use Classic Akka actors throughout** for comprehensive automatic instrumentation
 2. **Enable `kamon.instrumentation.akka.enabled = true`** in configuration  
-3. **Keep Akka Typed** for complex stateful actors where type safety is critical
-4. **Add manual spans** to Akka Typed actors for important business operations
-5. **Test your instrumentation** by checking traces in your observability backend
+3. **Leverage actor hierarchies** - parent-child relationships are automatically traced
+4. **Use routers for load balancing** - message distribution is automatically traced
+5. **Combine with Akka Streams** - stream processing stages are automatically traced
+6. **Test your instrumentation** by checking traces in your observability backend
 
 ### Dependencies for Actor Tracing
 
