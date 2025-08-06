@@ -1,0 +1,59 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # Filter out internal telemetry spans
+  filter/drop_internal:
+    spans:
+      exclude:
+        match_type: regexp
+        services: []
+        span_names: 
+          - ".*TraceService.*"
+          - ".*opentelemetry.*"
+          - ".*otel-collector.*"
+
+  # Let services set their own names
+  resource:
+    attributes:
+      - key: service.version
+        value: "0.1.0"
+        action: upsert
+
+exporters:
+  # Console exporter for debugging
+  debug:
+    verbosity: detailed
+    sampling_initial: 1
+    sampling_thereafter: 1
+
+  # Honeycomb exporter
+  otlp/honeycomb:
+    endpoint: https://api.honeycomb.io:443
+    headers:
+      x-honeycomb-team: "${HONEYCOMB_API_KEY}"
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [filter/drop_internal, resource, batch]
+      exporters: [debug, otlp/honeycomb]
+
+  extensions: []
+  
+  telemetry:
+    logs:
+      level: "debug"
+    metrics:
+      level: "detailed"
