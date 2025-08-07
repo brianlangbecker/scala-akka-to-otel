@@ -12,6 +12,7 @@ import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import kamon.Kamon
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -246,6 +247,10 @@ object AkkaApp extends App with LazyLogging {
   import JsonFormats._
 
   println("=== USER SERVICE TYPED STARTING ===")
+  
+  // Initialize Kamon
+  Kamon.init()
+  println(s"Kamon initialized for service: user-service-typed")
 
   // Create typed actor system for all actors
   implicit val typedSystem: ActorSystem[Nothing] = ActorSystem(Behaviors.empty, "user-system-typed")

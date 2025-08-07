@@ -10,6 +10,7 @@ import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import kamon.Kamon
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -56,6 +57,9 @@ object NotificationApp extends App with LazyLogging {
   import JsonFormats._
 
   println("Starting notification service typed")
+  
+  // Initialize Kamon
+  Kamon.init()
 
   implicit val system: ActorSystem[NotificationActor.Command] =
     ActorSystem(NotificationActor(), "notification-system")

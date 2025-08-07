@@ -12,15 +12,9 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-http-spray-json" % "10.5.3",
       "com.typesafe.akka" %% "akka-slf4j" % "2.8.5",
       
-      // OpenTelemetry dependencies for Typed Akka
-      "io.opentelemetry" % "opentelemetry-api" % "1.31.0",
-      "io.opentelemetry" % "opentelemetry-sdk" % "1.31.0",
-      "io.opentelemetry" % "opentelemetry-exporter-otlp" % "1.31.0",
-      "io.opentelemetry.instrumentation" % "opentelemetry-instrumentation-api" % "1.31.0",
-      "io.opentelemetry.semconv" % "opentelemetry-semconv" % "1.21.0-alpha",
-      
-      // Akka OpenTelemetry extension (replaces Kamon for typed actors)
-      "com.lightbend.akka" %% "akka-diagnostics" % "2.0.0",
+      // Kamon instrumentation
+      "io.kamon" %% "kamon-bundle" % "2.7.0",
+      "io.kamon" %% "kamon-opentelemetry" % "2.7.0",
       
       // Logging
       "ch.qos.logback" % "logback-classic" % "1.4.11",
