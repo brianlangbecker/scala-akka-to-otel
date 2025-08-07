@@ -12,7 +12,6 @@ import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import kamon.Kamon
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -33,7 +32,7 @@ object JsonFormats {
   implicit val processingEventFormat: RootJsonFormat[ProcessingEvent] = jsonFormat4(ProcessingEvent)
 }
 
-// ValidationActor handles event validation
+// ValidationActor handles event validation - TYPED WITH AUTOMATIC INSTRUMENTATION
 object ValidationActor extends LazyLogging {
   sealed trait ValidationCommand
   final case class ValidateEvent(event: ProcessingEvent, replyTo: ActorRef[ValidationResult]) extends ValidationCommand
@@ -42,7 +41,6 @@ object ValidationActor extends LazyLogging {
     Behaviors.receive { (context, message) =>
       message match {
         case ValidateEvent(event, replyTo) =>
-          
           logger.info(s"ValidationActor: Validating event ${event.eventType} for user ${event.userId}")
           
           // Simulate validation processing time
@@ -249,8 +247,9 @@ object AkkaApp extends App with LazyLogging {
   println("=== USER SERVICE TYPED STARTING ===")
   
   // Initialize Kamon
+  import kamon.Kamon
   Kamon.init()
-  println(s"Kamon initialized for service: user-service-typed")
+  println("=== KAMON INITIALIZED ===")
 
   // Create typed actor system for all actors
   implicit val typedSystem: ActorSystem[Nothing] = ActorSystem(Behaviors.empty, "user-system-typed")

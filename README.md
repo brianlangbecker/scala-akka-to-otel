@@ -1,26 +1,34 @@
-# Scala Akka to OpenTelemetry Demo
+# Scala Akka Typed to OpenTelemetry Demo
 
-A demonstration of distributed tracing with Scala, Akka, and OpenTelemetry using Kamon instrumentation, exporting traces to Honeycomb.
+A demonstration of distributed tracing with Scala, **Akka Typed actors**, and OpenTelemetry using Kamon instrumentation, exporting traces to Honeycomb.
+
+## 📖 Documentation
+
+- **[README-CLASSIC.md](README-CLASSIC.md)** - Classic Akka actors implementation (better automatic tracing)
+- **[README_AKKA_COMPARISON.md](README_AKKA_COMPARISON.md)** - Comprehensive comparison of Classic vs Typed, including bytecode injection differences
+- **README.md** (this file) - Akka Typed implementation
+
+> ⚠️ **Important**: Akka Typed actors have **limited automatic tracing** with Kamon. For comprehensive automatic tracing of actor message flows, consider using the Classic implementation. See the comparison document for detailed differences.
 
 ## Architecture
 
 This project consists of two microservices that communicate with each other:
 
-- **User Service Classic** (Port 8080): Manages user creation and retrieval using Classic Akka actors
-- **Notification Service Classic** (Port 8081): Handles notification sending using Classic Akka actors
+- **User Service Typed** (Port 8080): Manages user creation and retrieval using Akka Typed actors
+- **Notification Service Typed** (Port 8081): Handles notification sending using Akka Typed actors
 
 Both services are instrumented with Kamon and export telemetry data to Honeycomb via OpenTelemetry Collector.
 
 ## Services Overview
 
-### User Service Classic
+### User Service Typed
 - `GET /api/users/{id}` - Retrieve a user by ID  
 - `POST /api/users?name={name}` - Create a new user and send welcome notification
-- `GET /api/test-classic` - Test classic actor functionality
+- `GET /api/test-typed` - Test typed actor functionality
 - `GET /api/test-streams/{userId}` - Test Akka Streams processing
 - `GET /api/test-circuit-breaker/{userId}` - Test circuit breaker pattern
 
-### Notification Service Classic  
+### Notification Service Typed  
 - `POST /api/notifications` - Send a notification
 
 ## Prerequisites
@@ -83,13 +91,13 @@ docker-compose up otel-collector prometheus
 
 **Terminal 2 - Start User Service:**
 ```bash
-cd scala-akka-to-otel
+cd user-service-typed
 sbt run
 ```
 
 **Terminal 3 - Start Notification Service:**
 ```bash
-cd scala-akka-to-otel/notification-service  
+cd notification-service-typed
 sbt run
 ```
 
@@ -97,15 +105,18 @@ sbt run
 
 ```
 scala-akka-to-otel/
-├── src/main/scala/com/example/
-│   └── AkkaApp.scala              # User service implementation
-├── notification-service/
+├── user-service-typed/
+│   └── src/main/scala/com/example/
+│       └── AkkaApp.scala           # Typed user service implementation
+├── notification-service-typed/
 │   └── src/main/scala/com/example/notification/
-│       └── NotificationApp.scala  # Notification service implementation
+│       └── NotificationApp.scala  # Typed notification service implementation
 ├── otel-collector-config.yaml     # OpenTelemetry Collector configuration
 ├── docker-compose.yml             # Multi-service orchestration
 ├── prometheus.yml                 # Prometheus configuration
-└── README.md
+├── README.md                      # Akka Typed (this file)
+├── README-CLASSIC.md              # Classic Akka implementation
+└── README_AKKA_COMPARISON.md      # Classic vs Typed comparison
 ```
 
 ## OpenTelemetry Integration
@@ -115,9 +126,9 @@ scala-akka-to-otel/
 Both services use **Kamon** with **Kanela** for automatic instrumentation:
 
 - **Kanela Agent**: Bytecode instrumentation agent that injects tracing code at runtime
-- **Akka Actor tracing**: Automatically traces actor message processing (Classic actors)
+- **Akka Actor tracing**: Limited automatic tracing (Typed actors require manual instrumentation)
 - **Akka HTTP tracing**: Traces incoming HTTP requests and outgoing HTTP calls
-- **Zero Code Changes**: All instrumentation happens via bytecode modification
+- **Manual Instrumentation**: Typed actors require explicit span creation for detailed tracing
 
 ### Kanela Agent Configuration
 
@@ -131,11 +142,11 @@ RUN wget -O kanela-agent.jar https://repo1.maven.org/maven2/io/kamon/kanela-agen
 CMD java -javaagent:kanela-agent.jar -jar user-service.jar
 ```
 
-**What Kanela instruments:**
-- Akka Classic actor `receive` methods → automatic message spans
+**What Kanela instruments with Typed actors:**
 - Akka HTTP client/server calls → automatic HTTP spans  
 - Future/Promise completions → automatic async context propagation
-- Akka Streams processing → automatic stage spans
+- Akka Streams processing → limited automatic stage spans
+- Typed actor messages → **minimal automatic tracing** (see comparison doc)
 
 ### Kamon Configuration
 
@@ -144,7 +155,7 @@ Key Kamon configuration in `application.conf`:
 ```hocon
 kamon {
   environment {
-    service = "user-service-classic"  # or "notification-service-classic"
+    service = "user-service-typed"  # or "notification-service-typed"
   }
   
   opentelemetry {
@@ -153,7 +164,7 @@ kamon {
   }
   
   modules {
-    akka-actor.enabled = yes
+    akka-actor.enabled = yes  # Limited effectiveness with Typed actors
     akka-http.enabled = yes
   }
 }
@@ -399,12 +410,12 @@ This architecture demonstrates reactive, non-blocking, fault-tolerant microservi
 
 After running the test commands, you should see traces in Honeycomb showing:
 
-- **Service**: `user-service-classic` and `notification-service-classic`
+- **Service**: `user-service-typed` and `notification-service-typed`
 - **Operations**: 
   - `POST /api/users`
   - `POST /api/notifications`
-  - Actor message processing
-- **Spans**: HTTP requests, actor operations, and service calls
+  - Limited actor message processing (manual spans required)
+- **Spans**: HTTP requests, manual actor spans, and service calls
 - **Attributes**: HTTP status codes, user IDs, error information
 
 ## Troubleshooting
@@ -417,8 +428,8 @@ lsof -i :8081
 lsof -i :4317
 
 # View service logs
-docker-compose logs user-service-classic
-docker-compose logs notification-service-classic
+docker-compose logs user-service-typed
+docker-compose logs notification-service-typed
 docker-compose logs otel-collector
 ```
 
@@ -436,7 +447,7 @@ curl -X POST "http://localhost:8081/api/notifications" \
   -d '{"userId":"test","message":"test message","channel":"email"}'
 
 # Check Docker network connectivity
-docker-compose exec user-service-classic ping notification-service-classic
+docker-compose exec user-service-typed ping notification-service-typed
 ```
 
 ## Customization

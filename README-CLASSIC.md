@@ -2,7 +2,11 @@
 
 A demonstration of distributed tracing with Scala, **Classic Akka actors**, and OpenTelemetry using Kamon instrumentation, exporting traces to Honeycomb.
 
-> **Note**: This README is specific to the Classic Akka actor implementation. For the main project documentation, see [README.md](README.md).
+## 📖 Documentation
+
+- **[README.md](README.md)** - Main project with Akka Typed actors (limited automatic tracing)
+- **[README_AKKA_COMPARISON.md](README_AKKA_COMPARISON.md)** - Comprehensive comparison of Classic vs Typed, including bytecode injection differences
+- **README-CLASSIC.md** (this file) - Classic Akka implementation (better automatic tracing)
 
 ## Architecture
 
