@@ -12,8 +12,8 @@ RUN sbt update
 COPY src/ src/
 RUN sbt assembly
 
-# Download OpenTelemetry Java agent
-RUN wget -O opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.8.0/opentelemetry-javaagent.jar
+# Download Kanela agent for Kamon instrumentation
+RUN wget -O kanela-agent.jar https://repo1.maven.org/maven2/io/kamon/kanela-agent/1.0.17/kanela-agent-1.0.17.jar
 
 # Runtime stage
 FROM eclipse-temurin:17-jre-jammy
@@ -21,8 +21,8 @@ FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 
 COPY --from=builder /app/target/scala-2.13/user-service.jar .
-COPY --from=builder /app/opentelemetry-javaagent.jar .
+COPY --from=builder /app/kanela-agent.jar .
 
 EXPOSE 8080
 
-CMD ["java", "-javaagent:opentelemetry-javaagent.jar", "-Dotel.service.name=user-service", "-Dotel.exporter.otlp.endpoint=http://otel-collector:4318", "-jar", "user-service.jar"]
+CMD ["java", "-javaagent:kanela-agent.jar", "-jar", "user-service.jar"]

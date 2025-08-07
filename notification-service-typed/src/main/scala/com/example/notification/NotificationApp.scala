@@ -88,9 +88,9 @@ object NotificationApp extends App with LazyLogging {
       )
     }
 
-  val bindingFuture = Http().newServerAt("0.0.0.0", 8081).bind(route)
+  val bindingFuture = Http().newServerAt("0.0.0.0", 8083).bind(route)
   
-  println(s"Notification Service online at http://localhost:8081/")
+  println(s"Notification Service online at http://localhost:8083/")
   
   sys.addShutdownHook {
     system.terminate()

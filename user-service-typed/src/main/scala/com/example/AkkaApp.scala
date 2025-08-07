@@ -267,7 +267,7 @@ object AkkaApp extends App with LazyLogging {
 
     val httpRequest = HttpRequest(
       method = HttpMethods.POST,
-      uri = "http://notification-service-typed:8081/api/notifications",
+      uri = "http://notification-service-typed:8083/api/notifications",
       entity = HttpEntity(ContentTypes.`application/json`, requestJson)
     )
     logger.info(s"Making HTTP request to: ${httpRequest.uri}")
@@ -465,8 +465,8 @@ object AkkaApp extends App with LazyLogging {
       )
     }
 
-  val bindingFuture = Http().newServerAt("0.0.0.0", 8080).bind(route)
-  println(s"User Service online at http://localhost:8080/")
+  val bindingFuture = Http().newServerAt("0.0.0.0", 8082).bind(route)
+  println(s"User Service online at http://localhost:8082/")
   
   // Add shutdown hook for graceful shutdown in Docker
   sys.addShutdownHook {

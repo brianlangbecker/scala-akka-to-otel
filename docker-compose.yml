@@ -1,53 +1,78 @@
 version: '3.8'
 
+networks:
+  scala-akka-otel:
+    driver: bridge
+
 services:
-  # OpenTelemetry Collector
+  user-classic:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - HONEYCOMB_API_KEY=${HONEYCOMB_API_KEY}
+    depends_on:
+      - otel-collector
+    networks:
+      - scala-akka-otel
+
+  notification-classic:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      - HONEYCOMB_API_KEY=${HONEYCOMB_API_KEY}
+    depends_on:
+      - otel-collector
+    networks:
+      - scala-akka-otel
+
+  user-service-typed:
+    build:
+      context: ./user-service-typed
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_SERVICE_NAME=user-typed
+    depends_on:
+      - otel-collector
+    networks:
+      - scala-akka-otel
+
+  notification-service-typed:
+    build:
+      context: ./notification-service-typed
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8083"
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_SERVICE_NAME=notification-typed
+    depends_on:
+      - otel-collector
+    networks:
+      - scala-akka-otel
+
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    image: otel/opentelemetry-collector-contrib:0.130.1
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
     ports:
+      - "1888:1888"   # pprof extension
+      - "8888:8888"   # Prometheus metrics
+      - "8889:8889"   # Prometheus exporter metrics
+      - "13133:13133" # health_check extension
       - "4317:4317"   # OTLP gRPC receiver
       - "4318:4318"   # OTLP HTTP receiver
-      - "8889:8889"   # Prometheus metrics
+      - "55679:55679" # zpages extension
     environment:
       - HONEYCOMB_API_KEY=${HONEYCOMB_API_KEY}
-
-  # User Service (Classic Akka Actors)
-  user-service-classic:
-    build: ./user-service
-    ports:
-      - "8080:8080"
-    depends_on:
-      - otel-collector
-      - notification-service-classic
-
-  # Notification Service (Classic Akka Actors)
-  notification-service-classic:
-    build: ./notification-service
-    ports:
-      - "8081:8081"
-    depends_on:
-      - otel-collector
-
-  # User Service (Typed Akka Actors)
-  user-service-typed:
-    build: ./user-service-typed
-    ports:
-      - "8082:8080"
-    depends_on:
-      - otel-collector
-      - notification-service-typed
-
-  # Notification Service (Typed Akka Actors)
-  notification-service-typed:
-    build: ./notification-service-typed
-    ports:
-      - "8083:8081"
-    depends_on:
-      - otel-collector
-
-networks:
-  default:
-    name: scala-akka-otel
+    networks:
+      - scala-akka-otel

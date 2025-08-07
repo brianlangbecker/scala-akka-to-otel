@@ -21,7 +21,7 @@ WORKDIR /app
 COPY --from=builder /app/target/scala-2.13/notification-service-typed.jar .
 COPY --from=builder /app/opentelemetry-javaagent.jar .
 
-EXPOSE 8081
+EXPOSE 8083
 
 CMD ["java", \
      "-javaagent:opentelemetry-javaagent.jar", \

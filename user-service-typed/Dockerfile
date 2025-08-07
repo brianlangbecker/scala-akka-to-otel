@@ -25,7 +25,7 @@ COPY --from=builder /app/target/scala-2.13/user-service-typed.jar .
 COPY --from=builder /app/opentelemetry-javaagent.jar .
 COPY --from=builder /app/mesmer-otel-extension.jar .
 
-EXPOSE 8080
+EXPOSE 8082
 
 CMD ["java", \
      "-javaagent:opentelemetry-javaagent.jar", \
