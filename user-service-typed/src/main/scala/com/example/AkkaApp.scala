@@ -8,7 +8,6 @@ import akka.http.scaladsl.server.Directives._
 import akka.util.Timeout
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.NotUsed
-import kamon.Kamon
 import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol._
 import spray.json._
@@ -248,9 +247,6 @@ object AkkaApp extends App with LazyLogging {
 
   println("=== USER SERVICE TYPED STARTING ===")
 
-  Kamon.init()
-  println("=== KAMON INITIALIZED ===")
-
   // Create typed actor system for all actors
   implicit val typedSystem: ActorSystem[Nothing] = ActorSystem(Behaviors.empty, "user-system-typed")
   implicit val executionContext: ExecutionContext = typedSystem.executionContext
@@ -474,8 +470,6 @@ object AkkaApp extends App with LazyLogging {
   
   // Add shutdown hook for graceful shutdown in Docker
   sys.addShutdownHook {
-    println("=== Stopping Kamon ===")
-    Kamon.stop()
     typedSystem.terminate()
     println("=== User Service Typed stopped ===")
   }

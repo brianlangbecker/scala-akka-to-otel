@@ -6,7 +6,6 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.util.Timeout
-import kamon.Kamon
 import com.typesafe.scalalogging.LazyLogging
 import spray.json.DefaultJsonProtocol._
 import spray.json._
@@ -57,10 +56,6 @@ object NotificationApp extends App with LazyLogging {
   import JsonFormats._
 
   println("Starting notification service typed")
-  
-  Kamon.init()
-  
-  println("Kamon initialized successfully in notification service typed")
 
   implicit val system: ActorSystem[NotificationActor.Command] =
     ActorSystem(NotificationActor(), "notification-system")
@@ -98,8 +93,6 @@ object NotificationApp extends App with LazyLogging {
   println(s"Notification Service online at http://localhost:8081/")
   
   sys.addShutdownHook {
-    println("=== Stopping Kamon in Notification Service Typed ===")
-    Kamon.stop()
     system.terminate()
     println("=== Notification Service Typed stopped ===")
   }
